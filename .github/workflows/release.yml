@@ -1,0 +1,116 @@
+name: Build & Release Production ERP
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  discussions: write
+
+jobs:
+  release:
+    name: Build Production Executable & Create Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          check-latest: true
+          cache-dependency-path: 'backend/go.sum'
+
+      - name: Install Wails CLI
+        shell: powershell
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          $gopath = go env GOPATH
+          echo "$gopath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Frontend Dependencies & Build Frontend
+        shell: powershell
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Embed Frontend Dist into Backend
+        shell: powershell
+        run: |
+          Remove-Item -Recurse -Force backend\frontend\dist -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path backend\frontend\dist
+          Copy-Item frontend\dist\* backend\frontend\dist -Recurse -Force
+
+      - name: Build Production Wails Executable (.exe)
+        shell: powershell
+        run: |
+          cd backend
+          wails build -ldflags "-s -w" -platform windows/amd64
+
+      - name: Determine Release Tag and Title
+        id: vars
+        shell: powershell
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/*") {
+            $tag = "${{ github.ref }}".Replace("refs/tags/", "")
+            $title = "Release $tag"
+          } else {
+            $date = Get-Date -Format "yyyy.MM.dd"
+            $tag = "v1.0.${{ github.run_number }}"
+            $title = "Production Release $tag ($date)"
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "title=$title" >> $env:GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        id: changelog
+        shell: powershell
+        run: |
+          $prevTag = $(git describe --tags --abbrev=0 HEAD^ 2>$null)
+          if ($prevTag) {
+            $logs = git log --pretty=format:"* %s (%h)" "$prevTag..HEAD"
+          } else {
+            $logs = git log --pretty=format:"* %s (%h)" -n 20
+          }
+          if (-not $logs) {
+            $logs = "* Automated build release update"
+          }
+          $changelog = "## 🚀 What's Changed`n`n$logs`n`n---`n*Built automatically by GitHub Actions.*"
+          Set-Content -Path "CHANGELOG.md" -Value $changelog
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ERP-Windows-Executable
+          path: backend/build/bin/ERP.exe
+
+      - name: Create GitHub Release and Upload Release Executable
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: ${{ steps.vars.outputs.title }}
+          body_path: CHANGELOG.md
+          files: backend/build/bin/ERP.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

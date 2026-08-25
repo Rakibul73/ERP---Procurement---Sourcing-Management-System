@@ -235,6 +235,19 @@ wails build -ldflags "-s -w" -platform windows/amd64
 Copy-Item erp\backend\build\bin\ERP.exe erp\ERP.exe -Force
 ```
 
+### Automated GitHub Releases (CI/CD Workflow)
+
+A GitHub Actions workflow is located at `.github/workflows/release.yml`. When you push to the `main` or `master` branch (or push a tag like `v1.0.0`), the workflow automatically:
+
+1. Sets up Go and Node.js environments on a `windows-latest` runner
+2. Compiles the production React frontend bundle
+3. Embeds the static dist assets into the Go binary
+4. Packages the application using Wails CLI with stripped debug symbols (`-ldflags "-s -w"`)
+5. Generates a commit changelog (`CHANGELOG.md`) of recent changes
+6. Creates a new **GitHub Release** and automatically attaches the compiled `ERP.exe` binary as a release asset
+
+You can also trigger a release manually anytime from your GitHub repository under **Actions** → **Build & Release Production ERP** → **Run workflow**.
+
 ---
 
 ## Docker Build (Optional)
