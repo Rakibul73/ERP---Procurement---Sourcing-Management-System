@@ -10,6 +10,7 @@ declare global {
           Logout: () => Promise<void>
           GetUsers: () => Promise<any[]>
           GetUser: (id: number) => Promise<any>
+          CreateUser: (req: { username: string; email: string; password: string; fullName: string; role: string }) => Promise<any>
           UpdateUser: (id: number, fullName: string, email: string, role: string, active: boolean) => Promise<void>
           DeleteUser: (id: number) => Promise<void>
 

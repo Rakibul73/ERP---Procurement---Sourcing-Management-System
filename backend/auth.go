@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"time"
 
@@ -207,6 +208,70 @@ func (a *App) Register(req RegisterRequest) (*User, error) {
 		UpdatedAt: time.Now().Format(time.RFC3339),
 	}, nil
 }
+
+type CreateUserRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	FullName string `json:"fullName"`
+	Role     string `json:"role"`
+}
+
+func (a *App) CreateUser(req CreateUserRequest) (*User, error) {
+	if a.currentUser != nil {
+		if _, err := a.checkPermission(PermManageUsers); err != nil {
+			return nil, err
+		}
+	}
+	if req.Username == "" || req.Email == "" || req.Password == "" {
+		return nil, fmt.Errorf("username, email, and password are required")
+	}
+	var exists int
+	err := a.db.QueryRowContext(a.ctx, "SELECT COUNT(*) FROM users WHERE username = ? OR email = ?", req.Username, req.Email).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if exists > 0 {
+		return nil, ErrUserExists
+	}
+
+	role := req.Role
+	if role == "" {
+		role = "viewer"
+	}
+
+	passwordHash := hashPassword(req.Password)
+
+	result, err := a.db.ExecContext(a.ctx,
+		"INSERT INTO users (username, email, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)",
+		req.Username, req.Email, passwordHash, req.FullName, role,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	id, _ := result.LastInsertId()
+
+	_, err = a.db.ExecContext(a.ctx,
+		"INSERT INTO activity_log (user_id, action, entity_type, entity_id, details) VALUES (?, 'create', 'user', ?, ?)",
+		id, id, fmt.Sprintf("Created user %s (%s)", req.Username, role),
+	)
+	if err != nil {
+		log.Printf("Failed to log activity: %v", err)
+	}
+
+	return &User{
+		ID:        id,
+		Username:  req.Username,
+		Email:     req.Email,
+		FullName:  req.FullName,
+		Role:      role,
+		Active:    true,
+		CreatedAt: time.Now().Format(time.RFC3339),
+		UpdatedAt: time.Now().Format(time.RFC3339),
+	}, nil
+}
+
 
 func (a *App) GetUsers() ([]User, error) {
 	rows, err := a.db.QueryContext(a.ctx,
