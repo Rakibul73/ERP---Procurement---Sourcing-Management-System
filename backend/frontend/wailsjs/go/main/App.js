@@ -58,6 +58,10 @@ export function CreateTender(arg1, arg2) {
   return window['go']['main']['App']['CreateTender'](arg1, arg2);
 }
 
+export function CreateUser(arg1) {
+  return window['go']['main']['App']['CreateUser'](arg1);
+}
+
 export function DeleteCommunication(arg1) {
   return window['go']['main']['App']['DeleteCommunication'](arg1);
 }

@@ -97,6 +97,26 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class CreateUserRequest {
+	    username: string;
+	    email: string;
+	    password: string;
+	    fullName: string;
+	    role: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateUserRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.username = source["username"];
+	        this.email = source["email"];
+	        this.password = source["password"];
+	        this.fullName = source["fullName"];
+	        this.role = source["role"];
+	    }
+	}
 	export class Customer {
 	    id: number;
 	    companyName: string;

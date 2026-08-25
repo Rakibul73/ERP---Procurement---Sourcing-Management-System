@@ -30,6 +30,8 @@ export function CreateSupplierNote(arg1:number,arg2:string,arg3:any):Promise<mai
 
 export function CreateTender(arg1:main.Tender,arg2:Array<main.TenderItem>):Promise<number>;
 
+export function CreateUser(arg1:main.CreateUserRequest):Promise<main.User>;
+
 export function DeleteCommunication(arg1:number):Promise<void>;
 
 export function DeleteCustomer(arg1:number):Promise<void>;
