@@ -42,9 +42,7 @@ jobs:
         shell: powershell
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@latest
-          # Add GOPATH/bin to PATH for ALL subsequent steps
-          $gobin = (go env GOPATH) + '\bin'
-          echo $gobin >> $env:GITHUB_PATH
+          Write-Host "Wails installed to: $(go env GOPATH)\bin\wails.exe"
 
       - name: Install Frontend Dependencies & Build Frontend
         shell: powershell
@@ -63,15 +61,15 @@ jobs:
       - name: Build Production Wails Executable (.exe)
         shell: powershell
         run: |
-          # Ensure GOPATH/bin is on PATH in this step's shell session
-          $env:PATH = "$(go env GOPATH)\bin;$env:PATH"
-          # Verify wails is reachable before building
-          if (-not (Get-Command wails -ErrorAction SilentlyContinue)) {
-            Write-Error 'wails not found on PATH. GOPATH/bin: ' + (go env GOPATH) + '\bin'
+          # Resolve wails.exe by full path — avoids all PATH propagation issues
+          $wails = "$(go env GOPATH)\bin\wails.exe"
+          if (-not (Test-Path $wails)) {
+            Write-Error "wails not found at: $wails"
             exit 1
           }
-          cd backend
-          wails build -ldflags "-s -w" -platform windows/amd64
+          Write-Host "Using wails: $wails"
+          Set-Location backend
+          & $wails build -ldflags "-s -w" -platform windows/amd64
 
       - name: Determine Release Tag and Title
         id: vars
