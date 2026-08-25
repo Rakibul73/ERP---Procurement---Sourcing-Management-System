@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5  # v5 runs on Node.js 24 (fixes Node 20 deprecation)
         with:
-          node-version: '22'
+          node-version: '22.16.0'    # Pinned to match local dev machine (node --version = v22.16.0)
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
 
