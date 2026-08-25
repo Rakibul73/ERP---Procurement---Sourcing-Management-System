@@ -28,7 +28,21 @@ const ENTITY_LABELS: Record<string, string> = {
   purchase_order: 'Purchase Order',
 }
 
-export default function SearchPage() {
+interface SearchPageProps {
+  onNavigate?: (page: string) => void
+}
+
+const ROUTE_MAP: Record<string, string> = {
+  supplier: 'suppliers',
+  product: 'products',
+  customer: 'customers',
+  sourcing_request: 'sourcing',
+  tender: 'tenders',
+  quotation: 'quotations',
+  purchase_order: 'purchase-orders',
+}
+
+export default function SearchPage({ onNavigate }: SearchPageProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -45,6 +59,13 @@ export default function SearchPage() {
       console.error('Search failed:', error)
     } finally {
       setSearching(false)
+    }
+  }
+
+  const handleItemClick = (entityType: string) => {
+    const route = ROUTE_MAP[entityType]
+    if (route && onNavigate) {
+      onNavigate(route)
     }
   }
 
@@ -110,13 +131,17 @@ export default function SearchPage() {
               </div>
               <div className="divide-y divide-gray-700">
                 {items.map((item) => (
-                  <div key={`${item.entityType}-${item.entityId}`} className="px-4 py-3 hover:bg-gray-750 cursor-pointer flex items-center gap-3">
+                  <div
+                    key={`${item.entityType}-${item.entityId}`}
+                    onClick={() => handleItemClick(item.entityType)}
+                    className="px-4 py-3 hover:bg-gray-750 cursor-pointer flex items-center gap-3 transition-colors"
+                  >
                     <span className="text-lg">{ENTITY_ICONS[item.entityType] || '📄'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-medium truncate">{item.title}</p>
                       {item.subtitle && <p className="text-sm text-gray-400 truncate">{item.subtitle}</p>}
                     </div>
-                    <span className="text-xs text-gray-500">#{item.entityId}</span>
+                    <span className="text-xs text-gray-500 font-mono">#{item.entityId} →</span>
                   </div>
                 ))}
               </div>

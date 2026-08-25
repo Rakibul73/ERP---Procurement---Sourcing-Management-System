@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react'
-import { useAuth } from '../lib/auth'
 
 interface ExtractedData {
   type: string
@@ -18,7 +17,6 @@ interface ExtractionResult {
 }
 
 export default function DocumentImportPage() {
-  const { token } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -62,36 +60,27 @@ export default function DocumentImportPage() {
     setResult(null)
 
     try {
-      // Convert file to base64
       const reader = new FileReader()
       reader.onload = async (event) => {
         const data = event.target?.result as ArrayBuffer
         const uint8Array = new Uint8Array(data)
         
-        const response = await fetch('/api/extract', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
+        try {
+          const extractionResult = await window.go.main.App.ExtractFromImage({
             fileName: file.name,
             fileData: Array.from(uint8Array),
             fileType: file.type,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error('Extraction failed')
+          })
+          setResult(extractionResult)
+        } catch (err: any) {
+          setError(err?.message || 'Extraction failed')
+        } finally {
+          setLoading(false)
         }
-
-        const extractionResult: ExtractionResult = await response.json()
-        setResult(extractionResult)
-        setLoading(false)
       }
       reader.readAsArrayBuffer(file)
     } catch (err: any) {
-      setError(err.message || 'Extraction failed')
+      setError(err?.message || 'Extraction failed')
       setLoading(false)
     }
   }
@@ -101,31 +90,18 @@ export default function DocumentImportPage() {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/extract/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          type: result.data.type,
-          data: result.data.data,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Save failed')
-      }
-
-      const saveResult = await response.json()
-      alert(`${result.data.type.charAt(0).toUpperCase() + result.data.type.slice(1)} created successfully! ID: ${saveResult.id}`)
+      const id = await window.go.main.App.SaveExtractedData(
+        result.data.type,
+        result.data.data
+      )
+      alert(`${result.data.type.charAt(0).toUpperCase() + result.data.type.slice(1)} created successfully! ID: ${id}`)
       
       // Reset form
       setFile(null)
       setPreview(null)
       setResult(null)
     } catch (err: any) {
-      setError(err.message || 'Save failed')
+      setError(err?.message || 'Save failed')
     } finally {
       setLoading(false)
     }

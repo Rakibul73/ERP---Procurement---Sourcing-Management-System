@@ -60,7 +60,7 @@ function AppContent() {
       case 'documents':
         return <DocumentsPage />
       case 'search':
-        return <SearchPage />
+        return <SearchPage onNavigate={setCurrentPage} />
       case 'users':
         return <UsersPage />
       case 'settings':
