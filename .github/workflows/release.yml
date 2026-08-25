@@ -38,12 +38,6 @@ jobs:
           check-latest: true
           cache-dependency-path: 'backend/go.sum'
 
-      - name: Install Wails CLI
-        shell: powershell
-        run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
-          Write-Host "Wails installed to: $(go env GOPATH)\bin\wails.exe"
-
       - name: Install Frontend Dependencies & Build Frontend
         shell: powershell
         run: |
@@ -58,16 +52,21 @@ jobs:
           New-Item -ItemType Directory -Force -Path backend\frontend\dist
           Copy-Item frontend\dist\* backend\frontend\dist -Recurse -Force
 
-      - name: Build Production Wails Executable (.exe)
+      # Install wails AND build in ONE step so go env GOPATH is guaranteed
+      # to return the exact same path for both commands — no cross-step GOPATH drift
+      - name: Install Wails CLI & Build Production Executable
         shell: powershell
         run: |
-          # Resolve wails.exe by full path — avoids all PATH propagation issues
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
           $wails = "$(go env GOPATH)\bin\wails.exe"
+          Write-Host "Wails installed at: $wails"
+
           if (-not (Test-Path $wails)) {
-            Write-Error "wails not found at: $wails"
+            Write-Error "wails binary not found at expected path: $wails"
             exit 1
           }
-          Write-Host "Using wails: $wails"
+
           Set-Location backend
           & $wails build -ldflags "-s -w" -platform windows/amd64
 
