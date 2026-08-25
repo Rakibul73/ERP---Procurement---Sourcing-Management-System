@@ -42,8 +42,9 @@ jobs:
         shell: powershell
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@latest
-          $gopath = go env GOPATH
-          echo "$gopath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          # Add GOPATH/bin to PATH for ALL subsequent steps
+          $gobin = (go env GOPATH) + '\bin'
+          echo $gobin >> $env:GITHUB_PATH
 
       - name: Install Frontend Dependencies & Build Frontend
         shell: powershell
@@ -62,6 +63,13 @@ jobs:
       - name: Build Production Wails Executable (.exe)
         shell: powershell
         run: |
+          # Ensure GOPATH/bin is on PATH in this step's shell session
+          $env:PATH = "$(go env GOPATH)\bin;$env:PATH"
+          # Verify wails is reachable before building
+          if (-not (Get-Command wails -ErrorAction SilentlyContinue)) {
+            Write-Error 'wails not found on PATH. GOPATH/bin: ' + (go env GOPATH) + '\bin'
+            exit 1
+          }
           cd backend
           wails build -ldflags "-s -w" -platform windows/amd64
 
