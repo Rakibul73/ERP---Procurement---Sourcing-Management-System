@@ -20,23 +20,30 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5   # v5 runs on Node.js 24 (fixes Node 20 deprecation)
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5  # v5 runs on Node.js 24 (fixes Node 20 deprecation)
+        uses: actions/setup-node@v4
         with:
-          node-version: '22.16.0'    # Pinned to match local dev machine (node --version = v22.16.0)
+          node-version: '22.16.0'
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Setup Go
-        uses: actions/setup-go@v6   # v6 runs on Node.js 24 (fixes Node 20 deprecation)
+        uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           check-latest: true
           cache-dependency-path: 'backend/go.sum'
+
+      - name: Install Wails CLI
+        shell: powershell
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          $gopath = go env GOPATH
+          echo "$gopath\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Frontend Dependencies & Build Frontend
         shell: powershell
@@ -52,23 +59,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path backend\frontend\dist
           Copy-Item frontend\dist\* backend\frontend\dist -Recurse -Force
 
-      # Install wails AND build in ONE step so go env GOPATH is guaranteed
-      # to return the exact same path for both commands — no cross-step GOPATH drift
-      - name: Install Wails CLI & Build Production Executable
+      - name: Build Production Wails Executable (.exe)
         shell: powershell
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-          $wails = "$(go env GOPATH)\bin\wails.exe"
-          Write-Host "Wails installed at: $wails"
-
-          if (-not (Test-Path $wails)) {
-            Write-Error "wails binary not found at expected path: $wails"
-            exit 1
-          }
-
-          Set-Location backend
-          & $wails build -ldflags "-s -w" -platform windows/amd64
+          cd backend
+          wails build -ldflags "-s -w" -platform windows/amd64
 
       - name: Determine Release Tag and Title
         id: vars
@@ -102,7 +97,7 @@ jobs:
           Set-Content -Path "CHANGELOG.md" -Value $changelog
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4  # v4 already runs on Node.js 24
+        uses: actions/upload-artifact@v4
         with:
           name: ERP-Windows-Executable
           path: backend/build/bin/ERP.exe
