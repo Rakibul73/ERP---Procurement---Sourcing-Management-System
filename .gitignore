@@ -1,0 +1,33 @@
+# --- Go / Wails build artifacts ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Wails / Go build output directories
+build/*
+!build/Dockerfile
+dist/
+dist_bak/
+backend/build/
+backend/erp.exe
+ERP.exe
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.tsbuildinfo
+
+# --- Editor / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# --- Logs / temp ---
+*.log
+*.tmp

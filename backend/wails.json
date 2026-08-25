@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ERP",
+  "outputfilename": "ERP",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "",
+  "author": {
+    "name": "ERP"
+  },
+  "info": {
+    "companyName": "ERP",
+    "productName": "ERP System",
+    "productVersion": "1.0.0",
+    "copyright": "2026",
+    "comments": "Procurement & Sourcing Management"
+  }
+}
