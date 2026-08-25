@@ -103,11 +103,12 @@ func (a *App) GetSpendingBySupplier() ([]SpendingBySupplier, error) {
 		FROM suppliers s
 		LEFT JOIN purchase_orders po ON s.id = po.supplier_id AND po.status != 'cancelled'
 		GROUP BY s.id
-		HAVING SUM(po.total_amount) > 0
+		HAVING COALESCE(SUM(po.total_amount), 0) > 0
 		ORDER BY SUM(po.total_amount) DESC
 		LIMIT 10
 	`)
 	if err != nil {
+		log.Printf("GetSpendingBySupplier error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -116,6 +117,7 @@ func (a *App) GetSpendingBySupplier() ([]SpendingBySupplier, error) {
 	for rows.Next() {
 		var r SpendingBySupplier
 		if err := rows.Scan(&r.SupplierName, &r.TotalSpend, &r.POCount); err != nil {
+			log.Printf("GetSpendingBySupplier scan error: %v", err)
 			return nil, err
 		}
 		results = append(results, r)
@@ -125,14 +127,15 @@ func (a *App) GetSpendingBySupplier() ([]SpendingBySupplier, error) {
 
 func (a *App) GetMonthlySpend() ([]MonthlySpend, error) {
 	rows, err := a.db.Query(`
-		SELECT strftime('%Y-%m', order_date) as month, SUM(total_amount)
+		SELECT strftime('%Y-%m', order_date) as month, COALESCE(SUM(total_amount), 0)
 		FROM purchase_orders
-		WHERE status != 'cancelled' AND order_date IS NOT NULL
+		WHERE status != 'cancelled' AND order_date IS NOT NULL AND order_date != ''
 		GROUP BY month
 		ORDER BY month DESC
 		LIMIT 12
 	`)
 	if err != nil {
+		log.Printf("GetMonthlySpend error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -141,6 +144,7 @@ func (a *App) GetMonthlySpend() ([]MonthlySpend, error) {
 	for rows.Next() {
 		var r MonthlySpend
 		if err := rows.Scan(&r.Month, &r.Amount); err != nil {
+			log.Printf("GetMonthlySpend scan error: %v", err)
 			return nil, err
 		}
 		results = append(results, r)
@@ -156,18 +160,27 @@ func (a *App) GetMonthlySpend() ([]MonthlySpend, error) {
 
 func (a *App) GetTenderPerformance() ([]TenderPerformance, error) {
 	rows, err := a.db.Query(`
-		SELECT t.title, COUNT(q.id),
+		WITH q_totals AS (
+			SELECT q.id as quotation_id, q.tender_id, COALESCE(SUM(qli.unit_price * qli.quantity), 0) as total_amount
+			FROM quotations q
+			LEFT JOIN quotation_line_items qli ON q.id = qli.quotation_id
+			WHERE q.tender_id IS NOT NULL
+			GROUP BY q.id
+		)
+		SELECT t.title,
+			COUNT(qt.quotation_id) as quote_count,
 			t.status,
-			COALESCE(MIN(q.total_amount), 0),
-			COALESCE(AVG(q.total_amount), 0)
+			COALESCE(MIN(qt.total_amount), 0) as lowest_quote,
+			COALESCE(AVG(qt.total_amount), 0) as avg_quote
 		FROM tenders t
-		LEFT JOIN quotations q ON t.id = q.tender_id
+		JOIN q_totals qt ON t.id = qt.tender_id
 		GROUP BY t.id
-		HAVING COUNT(q.id) > 0
+		HAVING COUNT(qt.quotation_id) > 0
 		ORDER BY t.created_at DESC
 		LIMIT 10
 	`)
 	if err != nil {
+		log.Printf("GetTenderPerformance error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -176,6 +189,7 @@ func (a *App) GetTenderPerformance() ([]TenderPerformance, error) {
 	for rows.Next() {
 		var r TenderPerformance
 		if err := rows.Scan(&r.TenderTitle, &r.QuoteCount, &r.Status, &r.LowestQuote, &r.AvgQuote); err != nil {
+			log.Printf("GetTenderPerformance scan error: %v", err)
 			return nil, err
 		}
 		results = append(results, r)
@@ -186,8 +200,8 @@ func (a *App) GetTenderPerformance() ([]TenderPerformance, error) {
 func (a *App) GetOnTimeDeliveryRate() ([]OnTimeDelivery, error) {
 	rows, err := a.db.Query(`
 		SELECT strftime('%Y-%m', order_date) as month,
-			SUM(CASE WHEN actual_delivery <= expected_delivery THEN 1 ELSE 0 END),
-			SUM(CASE WHEN actual_delivery > expected_delivery THEN 1 ELSE 0 END)
+			COALESCE(SUM(CASE WHEN actual_delivery <= expected_delivery THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN actual_delivery > expected_delivery THEN 1 ELSE 0 END), 0)
 		FROM purchase_orders
 		WHERE status = 'delivered' AND expected_delivery IS NOT NULL AND actual_delivery IS NOT NULL
 		GROUP BY month
@@ -195,6 +209,7 @@ func (a *App) GetOnTimeDeliveryRate() ([]OnTimeDelivery, error) {
 		LIMIT 12
 	`)
 	if err != nil {
+		log.Printf("GetOnTimeDeliveryRate error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -203,6 +218,7 @@ func (a *App) GetOnTimeDeliveryRate() ([]OnTimeDelivery, error) {
 	for rows.Next() {
 		var r OnTimeDelivery
 		if err := rows.Scan(&r.Month, &r.OnTimeCount, &r.LateCount); err != nil {
+			log.Printf("GetOnTimeDeliveryRate scan error: %v", err)
 			return nil, err
 		}
 		total := r.OnTimeCount + r.LateCount
@@ -218,3 +234,4 @@ func (a *App) GetOnTimeDeliveryRate() ([]OnTimeDelivery, error) {
 
 	return results, nil
 }
+

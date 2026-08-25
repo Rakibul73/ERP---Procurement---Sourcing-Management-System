@@ -54,27 +54,62 @@ export default function Dashboard() {
   const [tenderPerf, setTenderPerf] = useState<TenderPerformance[]>([])
   const [activity, setActivity] = useState<ActivityLogEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadDashboard()
   }, [])
 
   const loadDashboard = async () => {
+    setLoading(true)
+    setError(null)
+    const errors: string[] = []
     try {
-      const [statsData, spendingData, monthlyData, tenderData, activityData] = await Promise.all([
+      const [statsRes, spendingRes, monthlyRes, tenderRes, activityRes] = await Promise.allSettled([
         window.go.main.App.GetDashboardStats(),
         window.go.main.App.GetSpendingBySupplier(),
         window.go.main.App.GetMonthlySpend(),
         window.go.main.App.GetTenderPerformance(),
         window.go.main.App.GetActivityLog(10),
       ])
-      setStats(statsData)
-      setSpending(spendingData || [])
-      setMonthlySpend(monthlyData || [])
-      setTenderPerf(tenderData || [])
-      setActivity(activityData || [])
-    } catch (error) {
-      console.error('Failed to load dashboard:', error)
+
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        setStats(statsRes.value)
+      } else if (statsRes.status === 'rejected') {
+        console.error('GetDashboardStats error:', statsRes.reason)
+        errors.push('Dashboard KPI Stats')
+      }
+
+      if (spendingRes.status === 'fulfilled' && spendingRes.value) {
+        setSpending(spendingRes.value)
+      } else if (spendingRes.status === 'rejected') {
+        errors.push('Supplier Spending')
+      }
+
+      if (monthlyRes.status === 'fulfilled' && monthlyRes.value) {
+        setMonthlySpend(monthlyRes.value)
+      } else if (monthlyRes.status === 'rejected') {
+        errors.push('Monthly Spend Trend')
+      }
+
+      if (tenderRes.status === 'fulfilled' && tenderRes.value) {
+        setTenderPerf(tenderRes.value)
+      } else if (tenderRes.status === 'rejected') {
+        errors.push('Tender Performance')
+      }
+
+      if (activityRes.status === 'fulfilled' && activityRes.value) {
+        setActivity(activityRes.value)
+      } else if (activityRes.status === 'rejected') {
+        errors.push('Recent Activity')
+      }
+
+      if (errors.length > 0) {
+        setError(`Failed to load: ${errors.join(', ')}`)
+      }
+    } catch (err: any) {
+      console.error('Failed to load dashboard:', err)
+      setError(err?.message || 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
@@ -93,10 +128,36 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Welcome back, {user?.fullName || user?.username}</h1>
-        <p className="text-gray-400 mt-1">Here's what's happening with your procurement today.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Welcome back, {user?.fullName || user?.username}</h1>
+          <p className="text-gray-400 mt-1">Here's what's happening with your procurement today.</p>
+        </div>
+        {error && (
+          <button
+            onClick={loadDashboard}
+            className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-lg text-sm transition-colors flex items-center gap-1.5"
+          >
+            🔄 Retry
+          </button>
+        )}
       </div>
+
+      {/* Error Alert Banner */}
+      {error && (
+        <div className="bg-red-900/40 border border-red-500/50 rounded-xl p-4 flex items-center justify-between text-red-200 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-white text-xs font-semibold uppercase tracking-wider"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">

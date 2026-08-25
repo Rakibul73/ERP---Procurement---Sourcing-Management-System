@@ -8,11 +8,11 @@ import (
 
 func (a *App) SeedDatabase() error {
 	var count int
-	if err := a.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
-		return fmt.Errorf("failed to check user count: %w", err)
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM suppliers").Scan(&count); err != nil {
+		return fmt.Errorf("failed to check supplier count: %w", err)
 	}
 	if count > 0 {
-		log.Printf("Seed skipped: %d users already exist", count)
+		log.Printf("Seed skipped: %d suppliers already exist", count)
 		return nil
 	}
 
@@ -32,25 +32,31 @@ func (a *App) SeedDatabase() error {
 	}
 
 	// === USERS ===
-	pw := hashPassword("admin123")
-	users := []struct{ username, email, fullName, role string }{
-		{"admin", "admin@erp-demo.com", "System Administrator", "admin"},
-		{"sarah.chen", "sarah@erp-demo.com", "Sarah Chen", "procurement_manager"},
-		{"mike.jones", "mike@erp-demo.com", "Mike Jones", "buyer"},
-		{"lisa.wong", "lisa@erp-demo.com", "Lisa Wong", "viewer"},
-	}
-	for _, u := range users {
-		if err := execOrRollback(`INSERT INTO users (username, email, password_hash, full_name, role, active) VALUES (?, ?, ?, ?, ?, 1)`,
-			u.username, u.email, pw, u.fullName, u.role); err != nil {
-			return err
+	var userCount int
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount); err == nil && userCount == 0 {
+		pw := hashPassword("admin123")
+		users := []struct{ username, email, fullName, role string }{
+			{"admin", "admin@erp-demo.com", "System Administrator", "admin"},
+			{"sarah.chen", "sarah@erp-demo.com", "Sarah Chen", "procurement_manager"},
+			{"mike.jones", "mike@erp-demo.com", "Mike Jones", "buyer"},
+			{"lisa.wong", "lisa@erp-demo.com", "Lisa Wong", "viewer"},
+		}
+		for _, u := range users {
+			if err := execOrRollback(`INSERT INTO users (username, email, password_hash, full_name, role, active) VALUES (?, ?, ?, ?, ?, 1)`,
+				u.username, u.email, pw, u.fullName, u.role); err != nil {
+				return err
+			}
 		}
 	}
 
 	// === ORGANIZATION ===
-	if err := execOrRollback(`INSERT INTO organizations (name, address, phone, email, website) VALUES (?, ?, ?, ?, ?)`,
-		"Global Procurement Corp", "123 Business Ave, Suite 500, New York, NY 10001",
-		"+1-212-555-0100", "info@globalprocurement.com", "https://globalprocurement.com"); err != nil {
-		return err
+	var orgCount int
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM organizations").Scan(&orgCount); err == nil && orgCount == 0 {
+		if err := execOrRollback(`INSERT INTO organizations (name, address, phone, email, website) VALUES (?, ?, ?, ?, ?)`,
+			"Global Procurement Corp", "123 Business Ave, Suite 500, New York, NY 10001",
+			"+1-212-555-0100", "info@globalprocurement.com", "https://globalprocurement.com"); err != nil {
+			return err
+		}
 	}
 
 	// === SUPPLIERS ===
@@ -520,12 +526,12 @@ func (a *App) SeedDatabase() error {
 
 func (a *App) maybeSeed() {
 	var count int
-	if err := a.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
-		log.Printf("maybeSeed: failed to check user count: %v", err)
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM suppliers").Scan(&count); err != nil {
+		log.Printf("maybeSeed: failed to check supplier count: %v", err)
 		return
 	}
 	if count == 0 {
-		log.Println("Empty database detected -- seeding demo data...")
+		log.Println("Empty or unseeded database detected -- seeding demo data...")
 		if err := a.SeedDatabase(); err != nil {
 			log.Printf("Seed failed: %v", err)
 			return
