@@ -20,19 +20,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5   # v5 runs on Node.js 24 (fixes Node 20 deprecation)
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5  # v5 runs on Node.js 24 (fixes Node 20 deprecation)
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6   # v6 runs on Node.js 24 (fixes Node 20 deprecation)
         with:
           go-version: '1.24'
           check-latest: true
@@ -97,7 +97,7 @@ jobs:
           Set-Content -Path "CHANGELOG.md" -Value $changelog
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4  # v4 already runs on Node.js 24
         with:
           name: ERP-Windows-Executable
           path: backend/build/bin/ERP.exe
